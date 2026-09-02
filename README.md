@@ -2,6 +2,8 @@
 
 **Published content has a half-life. Half-Life finds the part that has decayed.**
 
+**Live:** https://halflife-engine.vercel.app · **Source:** https://github.com/biyonjose10/half-life
+
 Every tool at this hackathon makes content. This one repairs content that was
 already published and has quietly gone wrong.
 
