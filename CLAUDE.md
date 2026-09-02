@@ -47,7 +47,8 @@ corpus/                           truth corpus + published library
 ## Commands
 
 ```bash
-npm run verify    # stage 1 determinism + no-LLM boundary + quote traceability
+npm run verify           # stage 1 determinism + no-LLM boundary + quote traceability
+npm run verify:degraded  # proves the engine fails visibly on an invalid key
 npm run engine    # full run in the terminal, prints the decay report (~75s)
 npm run facts     # just stage 1 output
 npm run retrieve  # just stages 1-2
@@ -56,6 +57,20 @@ npm run dev       # the console UI
 ```
 
 `npm run verify` before every commit. It is fast and it guards the invariants.
+
+## Deploying
+
+Live at **https://halflife-engine.vercel.app**. Manual releases:
+`npx vercel --prod --yes`, then re-point the alias at the new deployment:
+`npx vercel alias set <new-deployment-url> halflife-engine.vercel.app`.
+
+**Vercel enables Deployment Protection on new projects by default.** It silently
+302s every visitor to an SSO login, so the live link looks fine to you (already
+signed in) and is unreachable for everyone else. Check with
+`npx vercel project protection`; it must report `"ssoProtection": null`.
+`half-life.vercel.app` belongs to someone else — the alias is `halflife-engine`.
+
+A full production run is ~52s, faster than local.
 
 ## Gotchas
 
