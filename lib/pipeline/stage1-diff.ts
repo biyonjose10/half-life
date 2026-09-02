@@ -413,7 +413,18 @@ export function extractChangedFacts(root: string = process.cwd()): ChangedFact[]
     });
   }
 
+  // Drop prose facts subsumed by a more specific one. The prose scan picks up
+  // `@tailwind` from the same section where the code-block extractor already
+  // captured `@tailwind base; @tailwind components; ...` -> `@import`. Both are
+  // true, but reporting them separately double-counts one stale line.
+  const specific = facts.filter((f) => f.source !== 'upgrade-guide-prose').map((f) => f.old);
+  const deduped = facts.filter(
+    (f) =>
+      f.source !== 'upgrade-guide-prose' ||
+      !specific.some((other) => other.includes(f.old)),
+  );
+
   // Stable order - determinism is a property we demo, so it is enforced here.
-  facts.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-  return facts;
+  deduped.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  return deduped;
 }
