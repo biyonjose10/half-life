@@ -11,7 +11,8 @@
     "facts": "tsx scripts/facts.ts",
     "index": "tsx scripts/build-index.ts",
     "engine": "tsx scripts/run.ts",
-    "retrieve": "tsx scripts/retrieve.ts"
+    "retrieve": "tsx scripts/retrieve.ts",
+    "verify:degraded": "tsx scripts/verify-degraded.ts"
   },
   "dependencies": {
     "next": "16.3.4",

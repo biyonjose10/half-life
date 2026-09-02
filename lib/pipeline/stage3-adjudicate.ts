@@ -96,6 +96,12 @@ async function pool<T, R>(
 export interface AdjudicateOptions {
   onFinding?: (finding: Finding) => void;
   onProgress?: (done: number, total: number) => void;
+  /**
+   * Called once if any batch failed. A run whose model calls all failed would
+   * otherwise report zero findings and look like a clean bill of health, which
+   * is the most dangerous way for this tool to be wrong.
+   */
+  onFailures?: (failed: number, total: number, sample: string) => void;
 }
 
 export async function adjudicate(
@@ -133,6 +139,8 @@ export async function adjudicate(
 
   const findings: Finding[] = [];
   let done = 0;
+  let failed = 0;
+  let firstError = '';
 
   // Safety net for the case stage 1's fact dedup cannot see: two genuinely
   // distinct changes landing on the same sentence. Reporting it twice would
@@ -173,8 +181,11 @@ Return one result per passage, using \`ref\` for the PASSAGE number.`;
         system: SYSTEM,
       });
       results = res.results ?? [];
-    } catch {
+    } catch (err) {
       // One failed batch must not sink the run; the rest of the report stands.
+      // But the failure is counted and surfaced - see onFailures.
+      failed++;
+      firstError ||= err instanceof Error ? err.message : String(err);
       results = [];
     }
 
@@ -207,6 +218,8 @@ Return one result per passage, using \`ref\` for the PASSAGE number.`;
 
     opts.onProgress?.(++done, batches.length);
   });
+
+  if (failed) opts.onFailures?.(failed, batches.length, firstError);
 
   findings.sort((a, b) =>
     a.assetId === b.assetId ? a.segmentIdx - b.segmentIdx : a.assetId < b.assetId ? -1 : 1,

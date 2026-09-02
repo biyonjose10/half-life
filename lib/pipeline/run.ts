@@ -49,11 +49,31 @@ export async function runPipeline(
   emit({ type: 'stage-start', stage: 'retrieve' });
   t = Date.now();
   const index = VectorIndex.load(root);
-  const candidates = await retrieveCandidates(facts, assets, index, {
-    semantic: opts.semantic !== false,
-    onProgress: (done, total) =>
-      emit({ type: 'stage-progress', stage: 'retrieve', done, total }),
-  });
+  const onProgress = (done: number, total: number) =>
+    emit({ type: 'stage-progress', stage: 'retrieve', done, total });
+
+  let candidates;
+  try {
+    candidates = await retrieveCandidates(facts, assets, index, {
+      semantic: opts.semantic !== false,
+      onProgress,
+    });
+  } catch (err) {
+    // Embeddings are the only network call in this stage. If they fail, exact
+    // matching still works and carries most of the recall - a degraded report
+    // beats no report, as long as the degradation is stated rather than hidden.
+    emit({
+      type: 'error',
+      stage: 'retrieve',
+      message: `semantic retrieval unavailable, falling back to exact matches only: ${
+        err instanceof Error ? err.message : String(err)
+      }`,
+    });
+    candidates = await retrieveCandidates(facts, assets, index, {
+      semantic: false,
+      onProgress,
+    });
+  }
   emit({ type: 'candidates', candidates });
   emit({
     type: 'stage-done',
@@ -71,6 +91,13 @@ export async function runPipeline(
       onFinding: (finding) => emit({ type: 'finding', finding }),
       onProgress: (done, total) =>
         emit({ type: 'stage-progress', stage: 'adjudicate', done, total }),
+      // Partial failure must never read as "nothing is stale".
+      onFailures: (failedCount, total, sample) =>
+        emit({
+          type: 'error',
+          stage: 'adjudicate',
+          message: `${failedCount}/${total} batches failed - findings are incomplete. First error: ${sample}`,
+        }),
     });
   } catch (err) {
     emit({
