@@ -22,8 +22,13 @@ import type { Asset, Candidate, ChangedFact, Segment } from './types';
 
 /** Semantic hits below this cosine score are noise for this corpus. */
 const MIN_SEMANTIC_SCORE = 0.62;
-/** Semantic hits kept per fact, after exact matches are excluded. */
-const SEMANTIC_TOP_K = 6;
+/**
+ * Semantic hits kept per fact, after exact matches are excluded. Held at 3
+ * deliberately: every extra candidate becomes a Stage 3 model call, and the
+ * whole run has to finish inside a serverless function's time budget. Exact
+ * matches are uncapped because they are certainties.
+ */
+const SEMANTIC_TOP_K = 3;
 /** Characters of context kept either side of a match. */
 const SNIPPET_PAD = 220;
 

@@ -1,7 +1,15 @@
-import type { NextConfig } from "next";
+import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  /**
+   * The engine reads its two corpora from disk at request time. Next's file
+   * tracing only follows static imports, so without this the corpus is absent
+   * from the deployed bundle and the run fails with ENOENT in production while
+   * working perfectly on localhost.
+   */
+  outputFileTracingIncludes: {
+    '/api/run': ['./corpus/**/*'],
+  },
 };
 
 export default nextConfig;
