@@ -100,12 +100,15 @@ export async function retrieveCandidates(
     const vectors = await embedTexts(queries, 'RETRIEVAL_QUERY', opts.onProgress);
 
     facts.forEach((fact, i) => {
+      let kept = 0;
       for (const hit of index!.search(vectors[i], SEMANTIC_TOP_K * 3, MIN_SEMANTIC_SCORE)) {
+        if (kept >= SEMANTIC_TOP_K) break;
         const key = `${fact.id}|${hit.assetId}|${hit.segmentIdx}`;
-        if (taken.has(key)) continue; // already a certainty
+        if (taken.has(key)) continue; // already a certainty from the exact pass
         const found = segmentOf.get(`${hit.assetId}|${hit.segmentIdx}`);
         if (!found) continue;
         taken.add(key);
+        kept++;
         candidates.push({
           factId: fact.id,
           assetId: hit.assetId,
@@ -114,7 +117,6 @@ export async function retrieveCandidates(
           score: hit.score,
           snippet: snippetAround(found.seg.text, 0, Math.min(found.seg.text.length, 400)),
         });
-        if (candidates.filter((c) => c.factId === fact.id && c.method === 'semantic').length >= SEMANTIC_TOP_K) break;
       }
     });
   }

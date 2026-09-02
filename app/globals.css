@@ -1,26 +1,149 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ---------------------------------------------------------------------------
+   Half-Life console theme.
+
+   Instrument panel, not a marketing page: one neutral ink ramp, one phosphor
+   accent for "the engine is working", and exactly two alarm colours.
+   `silent` (amber) is deliberately the loudest thing on screen - a silent
+   failure is worse than a loud one, and the UI has to say so before the copy
+   does.
+--------------------------------------------------------------------------- */
+
+@theme {
+  /* neutrals */
+  --color-void: #04060a;
+  --color-panel: #090d14;
+  --color-raised: #0e141d;
+  --color-sunken: #070a10;
+  --color-line: #16202d;
+  --color-line-2: #22303f;
+  --color-ink: #e9f0f8;
+  --color-dim: #94a5ba;
+  --color-faint: #5f7089;
+
+  /* engine */
+  --color-phos: #4fe3b0;
+  --color-phos-deep: #0f3a2e;
+
+  /* alarms */
+  --color-silent: #ffb020;
+  --color-silent-deep: #3d2a05;
+  --color-breaking: #ff6161;
+  --color-breaking-deep: #3a1315;
+  --color-clean: #3f8f6f;
+
+  --animate-scan: hl-scan 1.9s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  --animate-blip: hl-blip 1.4s ease-in-out infinite;
+  --animate-rise: hl-rise 0.36s cubic-bezier(0.22, 0.68, 0.36, 1) both;
+  --animate-sweep: hl-sweep 2.6s linear infinite;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@keyframes hl-scan {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
   }
 }
 
+@keyframes hl-blip {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
+}
+
+@keyframes hl-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes hl-sweep {
+  0% {
+    background-position: -160% 0;
+  }
+  100% {
+    background-position: 260% 0;
+  }
+}
+
+html {
+  color-scheme: dark;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-void);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-phos) 30%, transparent);
+  color: #fff;
+}
+
+/* Faint engineering grid behind the header. Purely decorative. */
+.hl-field {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 46px 46px;
+  -webkit-mask-image: radial-gradient(ellipse 90% 100% at 50% 0%, #000 5%, transparent 78%);
+  mask-image: radial-gradient(ellipse 90% 100% at 50% 0%, #000 5%, transparent 78%);
+}
+
+.hl-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--color-phos) 22%, transparent) 45%,
+    transparent 90%
+  );
+  background-size: 45% 100%;
+  background-repeat: no-repeat;
+  animation: var(--animate-sweep);
+}
+
+/* Scrollbars inside code viewports. */
+.hl-scroll::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+.hl-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.hl-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-line-2);
+  border-radius: 999px;
+}
+.hl-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--color-faint);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }

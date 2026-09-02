@@ -42,3 +42,6 @@ next-env.d.ts
 
 # The example file carries no secret and should be committed.
 !.env.example
+
+# Engine run artifacts
+run.json

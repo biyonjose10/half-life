@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Real Tailwind v3/v4 source, vendored as the engine's source of truth.
+    // It is data the pipeline reads, not code this project ships.
+    "corpus/**",
   ]),
 ]);
 

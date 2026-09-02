@@ -309,7 +309,7 @@ function extractProseSections(guide: string): RawPair[] {
  */
 function severityFor(
   old: string,
-  renameTargets: Set<string>,
+  renameTargets: Map<string, string>,
   surface: Set<string>,
   silentHint?: string,
 ): { severity: Severity; reason: string } {
@@ -321,12 +321,18 @@ function severityFor(
         `using it keeps working while no longer doing what the tutorial claims.`,
     };
   }
-  if (renameTargets.has(old)) {
+  const displaced = renameTargets.get(old);
+  if (displaced) {
+    // State which way the meaning moved. Left to infer it, a model reliably
+    // gets the direction backwards - v3 `shadow-sm` became `shadow-xs`, so a
+    // v3 tutorial saying `shadow-sm` now renders what v3 called `shadow`,
+    // which is *larger*, not smaller.
     return {
       severity: 'silent',
       reason:
-        `\`${old}\` is still valid in v4 - it is the new name for a different ` +
-        `v3 utility. v3 content using it renders a different result with no error.`,
+        `\`${old}\` is still valid in v4, but it now means what v3 called ` +
+        `\`${displaced}\`. v3 content using \`${old}\` renders the ` +
+        `\`${displaced}\` result instead, with no error and no warning.`,
     };
   }
   if (surface.has(old)) {
@@ -379,9 +385,11 @@ export function extractChangedFacts(root: string = process.cwd()): ChangedFact[]
   const surface = v4UtilitySurface(root);
 
   const renames = extractRenames(guide);
-  const renameTargets = new Set(
-    renames.map((r) => r.replacement).filter((x): x is string => Boolean(x)),
-  );
+  // v4 name -> the v3 name it took over, e.g. `shadow-sm` -> `shadow`.
+  const renameTargets = new Map<string, string>();
+  for (const r of renames) {
+    if (r.replacement) renameTargets.set(r.replacement, r.old);
+  }
 
   const pairs = [
     ...renames,
