@@ -23,6 +23,12 @@ jobs:
       - name: Verify stage 1 invariants
         run: npm run verify
 
+      # Next generates route/layout types (LayoutProps and friends) that the
+      # app's own source references. They do not exist in a fresh checkout, so
+      # typechecking before this step fails on CI while passing locally.
+      - name: Generate Next route types
+        run: npx next typegen
+
       - name: Typecheck
         run: npx tsc --noEmit
 
