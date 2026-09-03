@@ -1,0 +1,17 @@
+{
+  "manifest_version": 3,
+  "name": "Half-Life \u2014 tutorial decay checker",
+  "version": "0.1.0",
+  "description": "Checks whether the tutorial you are reading has gone stale because the software it teaches changed versions.",
+  "permissions": [
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://halflife-engine.vercel.app/*"
+  ],
+  "action": {
+    "default_title": "Check this page for decay",
+    "default_popup": "popup.html"
+  }
+}
