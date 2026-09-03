@@ -91,6 +91,111 @@ function replayMock(cb: RunStreamCallbacks, speed: number): RunStreamHandle {
   };
 }
 
+export const CHECK_ENDPOINT = '/api/check';
+
+export interface CheckPayload {
+  url?: string;
+  text?: string;
+  title?: string;
+}
+
+/**
+ * Streams a check of one caller-supplied document.
+ *
+ * `EventSource` cannot POST, so this reads the response body directly. There is
+ * deliberately no mock fallback: if a check of a real page fails, saying so is
+ * the only honest outcome - quietly replaying canned events would be a lie
+ * about a document the user chose.
+ */
+export function openCheckStream(
+  payload: CheckPayload,
+  cb: RunStreamCallbacks,
+): RunStreamHandle {
+  const controller = new AbortController();
+  let settled = false;
+
+  const finish = (reason: EndReason, message?: string) => {
+    if (settled) return;
+    settled = true;
+    cb.onEnd(reason, message);
+  };
+
+  void (async () => {
+    let res: Response;
+    try {
+      res = await fetch(CHECK_ENDPOINT, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      finish('error', err instanceof Error ? err.message : 'Could not reach the engine.');
+      return;
+    }
+
+    if (!res.ok || !res.body) {
+      let message = `The engine returned HTTP ${res.status}.`;
+      try {
+        const body = (await res.json()) as { error?: string };
+        if (body.error) message = body.error;
+      } catch {
+        /* keep the status message */
+      }
+      finish('error', message);
+      return;
+    }
+
+    cb.onSource('live');
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    try {
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+
+        // SSE frames are separated by a blank line; a frame may arrive split
+        // across chunks, so only complete ones are consumed.
+        let split = buffer.indexOf('\n\n');
+        while (split !== -1) {
+          const frame = buffer.slice(0, split);
+          buffer = buffer.slice(split + 2);
+          const line = frame.split('\n').find((l) => l.startsWith('data: '));
+          if (line) {
+            try {
+              const event = JSON.parse(line.slice(6)) as PipelineEvent;
+              cb.onEvent(event);
+              if (event.type === 'done') {
+                finish('complete');
+                controller.abort();
+                return;
+              }
+            } catch {
+              /* skip an unparseable frame rather than killing the run */
+            }
+          }
+          split = buffer.indexOf('\n\n');
+        }
+      }
+      finish('complete');
+    } catch (err) {
+      if (controller.signal.aborted) finish('aborted');
+      else finish('error', err instanceof Error ? err.message : 'The check stream failed.');
+    }
+  })();
+
+  return {
+    cancel: () => {
+      controller.abort();
+      finish('aborted');
+    },
+  };
+}
+
 export interface OpenRunStreamOptions {
   /** Replay multiplier for the mock transport. 1 = real-time. */
   speed?: number;

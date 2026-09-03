@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { DecayReport } from './DecayReport';
 import { formatMs } from './format';
@@ -44,11 +44,13 @@ export function Console() {
     assetsById,
     repairsByHit,
     start,
+    check,
     speed,
     setSpeed,
   } = useEngineRun();
 
   const running = state.status === 'running';
+  const [url, setUrl] = useState('');
 
   const severityTotals = useMemo(() => {
     let silent = 0;
@@ -146,8 +148,16 @@ export function Console() {
           </span>
           <span className="hidden text-line-2 sm:inline">/</span>
           <span>
-            <span className="text-dim">library corpus</span> {assetsById.size} published DEV.to
-            tutorials
+            {state.mode === 'document' ? (
+              <>
+                <span className="text-dim">checking</span> one live page
+              </>
+            ) : (
+              <>
+                <span className="text-dim">library corpus</span> {assetsById.size} published DEV.to
+                tutorials
+              </>
+            )}
           </span>
           <span className="ml-auto flex items-center gap-4">
             {state.source && (
@@ -156,7 +166,11 @@ export function Console() {
                   state.source === 'live' ? 'text-phos' : 'text-silent/90'
                 }
               >
-                {state.source === 'live' ? 'stream /api/run' : 'stream mock replay'}
+                {state.source !== 'live'
+                  ? 'stream mock replay'
+                  : state.mode === 'document'
+                    ? 'stream /api/check'
+                    : 'stream /api/run'}
               </span>
             )}
             <span className="tabular-nums text-dim">
@@ -164,6 +178,37 @@ export function Console() {
             </span>
           </span>
         </div>
+
+        {/* ----------------------------------------------------------------
+            Point the engine at something nobody picked in advance. Same four
+            stages, same facts - just a library of one. */}
+        <form
+          className="mt-5 flex flex-wrap items-center gap-2.5"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (url.trim() && !running) check(url);
+          }}
+        >
+          <label htmlFor="check-url" className="sr-only">
+            URL of a tutorial to check
+          </label>
+          <input
+            id="check-url"
+            type="url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            disabled={running}
+            placeholder="https://…  check any tutorial on the web"
+            className="min-w-0 flex-1 basis-72 rounded-md border border-line-2 bg-void px-3.5 py-2.5 font-mono text-[13px] text-ink placeholder:text-faint focus:border-phos/60 focus:outline-none disabled:opacity-40"
+          />
+          <button
+            type="submit"
+            disabled={running || !url.trim()}
+            className="rounded-md px-4 py-2.5 font-mono text-[11px] font-semibold tracking-[0.16em] text-dim uppercase ring-1 ring-line-2 ring-inset transition-colors hover:bg-raised hover:text-ink disabled:opacity-40 disabled:hover:bg-transparent"
+          >
+            Check this page
+          </button>
+        </form>
 
         {/* ---------------------------------------------------------------- */}
         <div className="mt-6">

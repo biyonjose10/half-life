@@ -12,7 +12,13 @@ import type {
   Repair,
   StageName,
 } from '@/lib/pipeline/types';
-import { openRunStream, type RunStreamHandle, type StreamSource } from './run-stream';
+import {
+  openCheckStream,
+  openRunStream,
+  type RunStreamCallbacks,
+  type RunStreamHandle,
+  type StreamSource,
+} from './run-stream';
 
 export const STAGE_ORDER: StageName[] = ['diff', 'retrieve', 'adjudicate', 'repair'];
 
@@ -27,9 +33,13 @@ export interface StageState {
 
 export type RunStatus = 'idle' | 'running' | 'complete' | 'error';
 
+export type RunMode = 'corpus' | 'document';
+
 export interface RunState {
   status: RunStatus;
   source: StreamSource | null;
+  /** Which entry point produced this run - shown so the label is accurate. */
+  mode: RunMode;
   stages: Record<StageName, StageState>;
   facts: ChangedFact[];
   /** The library this run checked, streamed by the pipeline at the start. */
@@ -47,6 +57,7 @@ function initialState(): RunState {
   return {
     status: 'idle',
     source: null,
+    mode: 'corpus',
     stages: {
       diff: idleStage(),
       retrieve: idleStage(),
@@ -151,6 +162,8 @@ export interface EngineRun {
   assetsById: Map<string, Asset>;
   repairsByHit: Map<string, Repair>;
   start: () => void;
+  /** Run against one document the user supplied, by url. */
+  check: (url: string) => void;
   reset: () => void;
   speed: number;
   setSpeed: (n: number) => void;
@@ -172,32 +185,43 @@ export function useEngineRun(): EngineRun {
     return () => clearInterval(id);
   }, [state.status]);
 
-  const start = useCallback(() => {
+  /** Shared by both entry points: reset state and wire the stream callbacks. */
+  const begin = useCallback((mode: RunMode): RunStreamCallbacks => {
     handleRef.current?.cancel();
     startedAtRef.current = Date.now();
     setElapsedMs(0);
-    setState({ ...initialState(), status: 'running' });
+    setState({ ...initialState(), status: 'running', mode });
 
-    handleRef.current = openRunStream(
-      {
-        onEvent: (event) => setState((prev) => reduce(prev, event)),
-        onSource: (source) => setState((prev) => ({ ...prev, source })),
-        onEnd: (reason, message) => {
-          setElapsedMs(Date.now() - startedAtRef.current);
-          if (reason === 'error') {
-            setState((prev) => ({
-              ...prev,
-              status: 'error',
-              error: message ?? 'The run ended unexpectedly.',
-            }));
-          } else if (reason === 'complete') {
-            setState((prev) => (prev.status === 'error' ? prev : { ...prev, status: 'complete' }));
-          }
-        },
+    return {
+      onEvent: (event) => setState((prev) => reduce(prev, event)),
+      onSource: (source) => setState((prev) => ({ ...prev, source })),
+      onEnd: (reason, message) => {
+        setElapsedMs(Date.now() - startedAtRef.current);
+        if (reason === 'error') {
+          setState((prev) => ({
+            ...prev,
+            status: 'error',
+            error: message ?? 'The run ended unexpectedly.',
+          }));
+        } else if (reason === 'complete') {
+          setState((prev) => (prev.status === 'error' ? prev : { ...prev, status: 'complete' }));
+        }
       },
-      { speed },
-    );
-  }, [speed]);
+    };
+  }, []);
+
+  /** Check one document the user chose, rather than the committed corpus. */
+  const check = useCallback(
+    (url: string) => {
+      handleRef.current = openCheckStream({ url: url.trim() }, begin('document'));
+    },
+    [begin],
+  );
+
+  /** Run against the committed corpus. */
+  const start = useCallback(() => {
+    handleRef.current = openRunStream(begin('corpus'), { speed });
+  }, [begin, speed]);
 
   const reset = useCallback(() => {
     handleRef.current?.cancel();
@@ -248,6 +272,7 @@ export function useEngineRun(): EngineRun {
     assetsById,
     repairsByHit,
     start,
+    check,
     reset,
     speed,
     setSpeed,
