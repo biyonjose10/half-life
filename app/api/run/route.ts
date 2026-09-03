@@ -7,6 +7,7 @@
  */
 
 import { runPipeline } from '@/lib/pipeline/run';
+import { check, tooMany, CORPUS_LIMIT } from '@/lib/rate-limit';
 import type { PipelineEvent } from '@/lib/pipeline/types';
 
 // Reads the corpus from disk, so this cannot run on the edge runtime.
@@ -16,7 +17,13 @@ export const runtime = 'nodejs';
 // default timeout cuts the stream off mid-adjudication.
 export const maxDuration = 300;
 
-export async function GET() {
+export async function GET(request: Request) {
+  // A full corpus run is ~75 model calls of real spend, on a key shared with
+  // another live deployment. Public and unmetered is not a combination worth
+  // shipping.
+  const decision = check(request, CORPUS_LIMIT);
+  if (!decision.ok) return tooMany(decision);
+
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream<Uint8Array>({

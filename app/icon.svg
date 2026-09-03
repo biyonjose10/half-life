@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#0a0c0e"/>
+  <!-- A decay curve: full, then halving. The mark is the thesis. -->
+  <path d="M10 16 H30 V32 H44 V44 H54" fill="none" stroke="#4ade80"
+        stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="54" cy="44" r="4.5" fill="#f5b544"/>
+</svg>

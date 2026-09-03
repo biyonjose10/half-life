@@ -5,6 +5,10 @@ import type { ChangedFact, Finding, Repair, Segment, Severity } from '@/lib/pipe
 import { highlightRegex, splitOnMatches } from './format';
 import { CopyButton, FieldLabel, RichText, SEVERITY_STYLES, SeverityChip } from './primitives';
 
+/** Repo root for citation links, so a quote can be checked at its source line. */
+const SOURCE_BASE = 'https://github.com/biyonjose10/half-life/blob/main';
+
+
 function firstLine(s: string): string {
   const [head, ...rest] = s.split('\n');
   return rest.length ? `${head} …` : head;
@@ -187,9 +191,18 @@ export function FindingRow({
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-line px-3.5 py-2 font-mono text-[11.5px] text-faint">
                     <span className="text-phos/80">source of truth</span>
                     <span className="text-line-2">/</span>
-                    <span className="text-dim">
+                    {/* The whole claim is "check it yourself", so the citation
+                        has to be one click from the line it names, not a
+                        string the reader has to take on trust. */}
+                    <a
+                      href={`${SOURCE_BASE}/${fact.evidence.file}#L${fact.evidence.line}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-dim underline decoration-line-2 underline-offset-2 transition-colors hover:text-phos hover:decoration-phos"
+                      title="Open this line on GitHub"
+                    >
                       {fact.evidence.file}:{fact.evidence.line}
-                    </span>
+                    </a>
                     <span className="text-line-2">/</span>
                     <span>{fact.source}</span>
                   </div>

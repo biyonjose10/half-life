@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 
 import { Console } from '@/components/Console';
+import { loadSnapshot } from '@/lib/snapshot';
 
 export const metadata: Metadata = {
   title: 'Half-Life — tutorial decay engine',
@@ -27,5 +28,7 @@ export const metadata: Metadata = {
  *     the `heading` context shown on each finding.
  */
 export default function Page() {
-  return <Console />;
+  // A recorded run, so the first view is instant and costs nothing. The live
+  // run is one button away and the UI says which of the two you are looking at.
+  return <Console snapshot={loadSnapshot()} />;
 }

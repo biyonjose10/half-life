@@ -32,18 +32,26 @@ function group(
 ): AssetGroup[] {
   const byAsset = new Map<string, AssetGroup>();
 
+  const blank = (assetId: string): AssetGroup => ({
+    assetId,
+    asset: assetsById.get(assetId),
+    stale: [],
+    cleared: [],
+    silent: 0,
+    breaking: 0,
+    score: 0,
+  });
+
+  // Seed from the library the pipeline actually checked, not from the findings.
+  // Building only from findings meant a document with nothing wrong produced no
+  // card at all - so checking a correct, modern tutorial rendered an empty
+  // report, which reads as broken rather than as a clean bill of health.
+  for (const assetId of assetsById.keys()) byAsset.set(assetId, blank(assetId));
+
   for (const finding of findings) {
     let g = byAsset.get(finding.assetId);
     if (!g) {
-      g = {
-        assetId: finding.assetId,
-        asset: assetsById.get(finding.assetId),
-        stale: [],
-        cleared: [],
-        silent: 0,
-        breaking: 0,
-        score: 0,
-      };
+      g = blank(finding.assetId);
       byAsset.set(finding.assetId, g);
     }
     if (finding.verdict === 'STALE') {
@@ -157,9 +165,9 @@ function AssetCard({
 
       {clean ? (
         <p className="border-t border-line px-4 py-3.5 text-[13px] leading-relaxed text-faint sm:px-5">
-          {g.cleared.length} candidate{g.cleared.length === 1 ? '' : 's'} retrieved and checked
-          against the change set. None of them depend on behaviour that moved — this tutorial is
-          still correct on v4.
+          {g.cleared.length > 0
+            ? `${g.cleared.length} candidate${g.cleared.length === 1 ? '' : 's'} retrieved and checked against the change set. None of them depend on behaviour that moved — this page is still correct on v4.`
+            : 'Checked against every documented change. Nothing on this page depends on behaviour that moved — it is still correct on v4.'}
         </p>
       ) : visible.length === 0 ? (
         <p className="border-t border-line px-4 py-3.5 font-mono text-[12px] text-faint sm:px-5">
@@ -314,7 +322,9 @@ export function DecayReport({
                 } · ${totals.cleanAssets} checked and clean · ordered by silent-failure risk`
               : adjudicating
                 ? 'Adjudicating retrieved candidates…'
-                : 'Findings appear here as the adjudicator confirms them.'}
+                : totals.cleanAssets > 0
+                  ? `Nothing stale. ${totals.cleanAssets} page${totals.cleanAssets === 1 ? '' : 's'} checked against 36 documented changes and found still correct.`
+                  : 'Findings appear here as the adjudicator confirms them.'}
           </p>
         </div>
 

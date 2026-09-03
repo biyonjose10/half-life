@@ -6,8 +6,18 @@ import { DecayReport } from './DecayReport';
 import { formatMs } from './format';
 import { StageRail } from './StageRail';
 import { useEngineRun } from './useEngineRun';
+import type { RunSnapshot } from '@/lib/snapshot';
 
 const SPEEDS = [1, 2, 4];
+
+/**
+ * A real published tutorial that is deliberately NOT in the corpus, so the
+ * bring-your-own path can be tried without anyone having to go and find one.
+ */
+const EXAMPLE_URL =
+  'https://dev.to/lordsage/how-install-tailwind-css-on-a-next-js-project-a-step-by-step-guide-1p6d';
+
+const REPO_URL = 'https://github.com/biyonjose10/half-life';
 
 function Metric({
   value,
@@ -35,7 +45,7 @@ function Metric({
   );
 }
 
-export function Console() {
+export function Console({ snapshot }: { snapshot: RunSnapshot | null }) {
   const {
     state,
     counts,
@@ -47,7 +57,7 @@ export function Console() {
     check,
     speed,
     setSpeed,
-  } = useEngineRun();
+  } = useEngineRun(snapshot);
 
   const running = state.status === 'running';
   const [url, setUrl] = useState('');
@@ -102,7 +112,15 @@ export function Console() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex overflow-hidden rounded-sm ring-1 ring-line-2 ring-inset">
+            {/* Replay speed only affects the mock transport. Showing it during a
+                live run invites a judge to press 4×, see nothing change, and
+                conclude the page is broken. */}
+            <div
+              className={`flex overflow-hidden rounded-sm ring-1 ring-line-2 ring-inset ${
+                state.source === 'live' ? 'hidden' : ''
+              }`}
+              title="Replay speed for the offline mock. A live run streams at the engine's own pace."
+            >
               {SPEEDS.map((s) => (
                 <button
                   key={s}
@@ -166,11 +184,13 @@ export function Console() {
                   state.source === 'live' ? 'text-phos' : 'text-silent/90'
                 }
               >
-                {state.source !== 'live'
-                  ? 'stream mock replay'
-                  : state.mode === 'document'
-                    ? 'stream /api/check'
-                    : 'stream /api/run'}
+                {state.source === 'cached'
+                  ? `recorded run · ${new Date(snapshot!.generatedAt).toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`
+                  : state.source !== 'live'
+                    ? 'stream mock replay'
+                    : state.mode === 'document'
+                      ? 'stream /api/check'
+                      : 'stream /api/run'}
               </span>
             )}
             <span className="tabular-nums text-dim">
@@ -207,6 +227,17 @@ export function Console() {
             className="rounded-md px-4 py-2.5 font-mono text-[11px] font-semibold tracking-[0.16em] text-dim uppercase ring-1 ring-line-2 ring-inset transition-colors hover:bg-raised hover:text-ink disabled:opacity-40 disabled:hover:bg-transparent"
           >
             Check this page
+          </button>
+          {/* Nobody arrives with a stale Tailwind tutorial to hand. Without a
+              one-click example the bring-your-own path - the answer to "did you
+              pick the corpus to suit yourself?" - goes untried. */}
+          <button
+            type="button"
+            disabled={running}
+            onClick={() => setUrl(EXAMPLE_URL)}
+            className="font-mono text-[11.5px] text-faint underline decoration-line-2 underline-offset-4 transition-colors hover:text-phos hover:decoration-phos disabled:opacity-40"
+          >
+            or try one we have never checked ↗
           </button>
         </form>
 
@@ -294,6 +325,39 @@ export function Console() {
             />
           </>
         )}
+
+        {/* The source is half the argument - "open the file and check" only
+            works if there is a way to get to the file from here. */}
+        <footer className="mt-16 flex flex-wrap items-center gap-x-6 gap-y-3 border-t border-line pt-6 font-mono text-[11.5px] text-faint">
+          <a
+            href={REPO_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="transition-colors hover:text-phos"
+          >
+            source on github ↗
+          </a>
+          <a
+            href={`${REPO_URL}/blob/main/lib/pipeline/stage1-diff.ts`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="transition-colors hover:text-phos"
+            title="The stage that decides what changed. It imports node:fs, node:path and its own types - nothing else."
+          >
+            the stage with no model in it ↗
+          </a>
+          <a
+            href={`${REPO_URL}/tree/main/extension`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="transition-colors hover:text-phos"
+          >
+            browser extension ↗
+          </a>
+          <span className="ml-auto text-line-2">
+            the engine cannot invent a change that did not happen
+          </span>
+        </footer>
       </div>
     </div>
   );

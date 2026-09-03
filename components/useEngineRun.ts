@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { mockAssets } from '@/lib/mock-events';
+import type { RunSnapshot } from '@/lib/snapshot';
 import type {
   Asset,
   Candidate,
@@ -169,8 +170,42 @@ export interface EngineRun {
   setSpeed: (n: number) => void;
 }
 
-export function useEngineRun(): EngineRun {
-  const [state, setState] = useState<RunState>(initialState);
+export function useEngineRun(snapshot?: RunSnapshot | null): EngineRun {
+  // The console opens on a recorded run so a visit costs nothing and renders
+  // instantly. It is marked `cached` so the UI never implies it just happened.
+  const [state, setState] = useState<RunState>(() =>
+    snapshot
+      ? {
+          ...initialState(),
+          status: 'complete',
+          source: 'cached',
+          facts: snapshot.facts,
+          assets: snapshot.assets,
+          findings: snapshot.findings,
+          repairs: snapshot.repairs,
+          summary: {
+            staleAssets: new Set(snapshot.findings.map((f) => f.assetId)).size,
+            totalFindings: snapshot.findings.length,
+          },
+          stages: {
+            diff: { status: 'done', done: snapshot.facts.length, total: snapshot.facts.length, ms: 0 },
+            retrieve: { status: 'done', done: 0, total: 0, ms: 0 },
+            adjudicate: {
+              status: 'done',
+              done: snapshot.findings.length,
+              total: snapshot.findings.length,
+              ms: 0,
+            },
+            repair: {
+              status: 'done',
+              done: snapshot.repairs.length,
+              total: snapshot.repairs.length,
+              ms: 0,
+            },
+          },
+        }
+      : initialState(),
+  );
   const [speed, setSpeed] = useState(1);
   const [elapsedMs, setElapsedMs] = useState(0);
   const handleRef = useRef<RunStreamHandle | null>(null);

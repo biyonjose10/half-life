@@ -11,6 +11,7 @@
 import { runPipeline } from '@/lib/pipeline/run';
 import { buildLiveLibrary } from '@/lib/pipeline/live';
 import { MAX_DOCUMENT_CHARS } from '@/lib/segment';
+import { check as rateCheck, tooMany, DOCUMENT_LIMIT } from '@/lib/rate-limit';
 import type { PipelineEvent } from '@/lib/pipeline/types';
 
 export const runtime = 'nodejs';
@@ -79,6 +80,11 @@ async function fetchDocument(target: string): Promise<{ text: string; title: str
 }
 
 export async function POST(request: Request) {
+  // Open CORS is what lets the extension reach this from any page, which also
+  // means any page can spend on the project's behalf. Capped accordingly.
+  const decision = rateCheck(request, DOCUMENT_LIMIT);
+  if (!decision.ok) return tooMany(decision, CORS);
+
   let body: CheckBody;
   try {
     body = (await request.json()) as CheckBody;

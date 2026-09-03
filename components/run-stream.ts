@@ -18,7 +18,7 @@
 import { mockEvents } from '@/lib/mock-events';
 import type { PipelineEvent } from '@/lib/pipeline/types';
 
-export type StreamSource = 'live' | 'mock';
+export type StreamSource = 'live' | 'mock' | 'cached';
 export type EndReason = 'complete' | 'aborted' | 'error';
 
 export interface RunStreamCallbacks {
