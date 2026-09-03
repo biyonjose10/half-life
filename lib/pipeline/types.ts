@@ -132,6 +132,14 @@ export type PipelineEvent =
   | { type: 'stage-progress'; stage: StageName; done: number; total: number }
   | { type: 'stage-done'; stage: StageName; count: number; ms: number }
   | { type: 'facts'; facts: ChangedFact[] }
+  /**
+   * The library being checked, sent once at the start. Findings carry only
+   * ids, so without this the UI cannot show a title, date or source link.
+   *
+   * Segment *text* is stripped before sending - the corpus is over half a
+   * megabyte and the UI reads nothing from a segment but its heading.
+   */
+  | { type: 'assets'; assets: Asset[] }
   | { type: 'candidates'; candidates: Candidate[] }
   | { type: 'finding'; finding: Finding }
   | { type: 'repair'; repair: Repair }

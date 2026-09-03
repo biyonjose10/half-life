@@ -23,6 +23,19 @@ export interface RunOptions {
   semantic?: boolean;
   /** Skip stage 4. */
   withRepairs?: boolean;
+  /**
+   * Library to check. Defaults to the committed corpus. A live document -
+   * a page the browser extension is looking at - is passed here instead, so
+   * an arbitrary page runs through exactly the same four stages as a corpus
+   * article rather than down a parallel code path.
+   */
+  assets?: Asset[];
+  /**
+   * Vector index over `assets`. Defaults to the cached corpus index. For a
+   * live document the caller builds a transient one, since a page the engine
+   * has never seen cannot be in the cache.
+   */
+  index?: VectorIndex | null;
 }
 
 export function loadAssets(root: string): Asset[] {
@@ -36,7 +49,17 @@ export async function runPipeline(
   emit: (event: PipelineEvent) => void,
   opts: RunOptions = {},
 ): Promise<{ findings: Finding[]; repairs: Repair[] }> {
-  const assets = loadAssets(root);
+  const assets = opts.assets ?? loadAssets(root);
+
+  // The UI resolves finding ids against this. Segment text is dropped: the
+  // corpus is >500KB and nothing in the report reads a segment but its heading.
+  emit({
+    type: 'assets',
+    assets: assets.map((a) => ({
+      ...a,
+      segments: a.segments.map((s) => ({ ...s, text: '' })),
+    })),
+  });
 
   // --- stage 1: deterministic diff ----------------------------------------
   emit({ type: 'stage-start', stage: 'diff' });
@@ -48,7 +71,7 @@ export async function runPipeline(
   // --- stage 2: cross-corpus retrieval ------------------------------------
   emit({ type: 'stage-start', stage: 'retrieve' });
   t = Date.now();
-  const index = VectorIndex.load(root);
+  const index = opts.index !== undefined ? opts.index : VectorIndex.load(root);
   const onProgress = (done: number, total: number) =>
     emit({ type: 'stage-progress', stage: 'retrieve', done, total });
 

@@ -32,6 +32,8 @@ export interface RunState {
   source: StreamSource | null;
   stages: Record<StageName, StageState>;
   facts: ChangedFact[];
+  /** The library this run checked, streamed by the pipeline at the start. */
+  assets: Asset[];
   candidates: Candidate[];
   findings: Finding[];
   repairs: Repair[];
@@ -52,6 +54,7 @@ function initialState(): RunState {
       repair: idleStage(),
     },
     facts: [],
+    assets: [],
     candidates: [],
     findings: [],
     repairs: [],
@@ -98,6 +101,9 @@ function reduce(state: RunState, event: PipelineEvent): RunState {
 
     case 'facts':
       return { ...state, facts: [...state.facts, ...event.facts] };
+
+    case 'assets':
+      return { ...state, assets: event.assets };
 
     case 'candidates':
       return { ...state, candidates: [...state.candidates, ...event.candidates] };
@@ -220,9 +226,14 @@ export function useEngineRun(): EngineRun {
     [state.facts],
   );
 
-  // No pipeline event carries Asset metadata, so the console resolves asset
-  // ids against a local registry. See the note in app/page.tsx.
-  const assetsById = useMemo(() => new Map(mockAssets.map((a) => [a.id, a])), []);
+  // The pipeline streams the library it actually checked, so the report can
+  // describe any document - including a live page the engine has never seen.
+  // The mock fixture is only the fallback for mock mode, which emits no
+  // `assets` event.
+  const assetsById = useMemo(
+    () => new Map((state.assets.length ? state.assets : mockAssets).map((a) => [a.id, a])),
+    [state.assets],
+  );
 
   const repairsByHit = useMemo(
     () => new Map(state.repairs.map((r) => [hitKey(r), r])),
