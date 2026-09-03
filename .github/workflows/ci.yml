@@ -29,6 +29,9 @@ jobs:
       - name: Generate Next route types
         run: npx next typegen
 
+      - name: Unit tests
+        run: npm test
+
       - name: Typecheck
         run: npx tsc --noEmit
 

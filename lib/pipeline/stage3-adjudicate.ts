@@ -68,7 +68,7 @@ interface RawResult {
 }
 
 /** Whitespace-insensitive containment - models normalise indentation. */
-function containsVerbatim(haystack: string, needle: string): boolean {
+export function containsVerbatim(haystack: string, needle: string): boolean {
   const norm = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase();
   const n = norm(needle);
   return n.length >= 8 && norm(haystack).includes(n);

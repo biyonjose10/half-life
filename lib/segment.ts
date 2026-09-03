@@ -18,9 +18,24 @@ import type { Asset, Segment } from './pipeline/types';
 
 const FRONTMATTER = /^---\r?\n[\s\S]*?\r?\n---\r?\n/;
 
-/** A heading in extracted page text: short, unpunctuated, not a sentence. */
-const LOOKS_LIKE_HEADING = (line: string) =>
-  line.length > 0 && line.length < 80 && !/[.,;:!?]$/.test(line.trim());
+/**
+ * A heading in extracted page text.
+ *
+ * Short and unpunctuated is not enough on its own: "after installing tailwind
+ * there is configuration needed" is a 53-character sentence with no full stop,
+ * and `npm install tailwindcss postcss autoprefixer` is a command. Both were
+ * being swallowed as headings and disappearing from the checked text.
+ *
+ * Requiring few words and an initial capital separates a real heading from a
+ * lowercase sentence fragment or a shell command.
+ */
+const LOOKS_LIKE_HEADING = (line: string) => {
+  const text = line.trim();
+  if (!text || text.length >= 60) return false;
+  if (/[.,;:!?]$/.test(text)) return false;
+  if (text.split(/\s+/).length > 8) return false;
+  return /^[A-Z0-9]/.test(text);
+};
 
 function push(segments: Segment[], heading: string, kind: Segment['kind'], buf: string[]): void {
   const text = buf.join('\n').trim();
