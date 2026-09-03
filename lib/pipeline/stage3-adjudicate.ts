@@ -142,12 +142,23 @@ export async function adjudicate(
   let failed = 0;
   let firstError = '';
 
-  // Safety net for the case stage 1's fact dedup cannot see: two genuinely
-  // distinct changes landing on the same sentence. Reporting it twice would
-  // inflate the count and make the creator fix one line twice.
-  const reported = new Set<string>();
-  const sentenceKey = (assetId: string, idx: number, sentence: string) =>
-    `${assetId}|${idx}|${sentence.replace(/\s+/g, ' ').trim().toLowerCase()}`;
+  /**
+   * Safety net for what stage 1's fact dedup cannot see: two distinct facts
+   * landing on the same line. `tailwind.config.js` and `@config` are separate
+   * tokens describing one v4 change, so a tutorial step about the config file
+   * gets flagged by both.
+   *
+   * Overlap, not equality, is the test - the two verdicts quote different spans
+   * of the same sentence ("Open the tailwind.config.js file… Locate the purge
+   * property…" versus just "Locate the purge property…"), so an exact-match
+   * check lets both through. It also costs a highlight: the extension marks the
+   * first, and then cannot mark the second because it sits inside the first.
+   *
+   * First-writer wins. Which of an overlapping pair survives depends on batch
+   * completion order, but they describe the same defect either way.
+   */
+  const reportedBySegment = new Map<string, string[]>();
+  const normSentence = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase();
 
   await pool(batches, CONCURRENCY, async ({ fact, items }) => {
     const passages = items
@@ -199,9 +210,12 @@ Return one result per passage, using \`ref\` for the PASSAGE number.`;
       const source = segText.get(`${c.assetId}|${c.segmentIdx}`) ?? '';
       if (!containsVerbatim(source, r.staleSentence)) continue;
 
-      const key = sentenceKey(c.assetId, c.segmentIdx, r.staleSentence);
-      if (reported.has(key)) continue;
-      reported.add(key);
+      const segmentKey = `${c.assetId}|${c.segmentIdx}`;
+      const sentence = normSentence(r.staleSentence);
+      const already = reportedBySegment.get(segmentKey) ?? [];
+      if (already.some((s) => s.includes(sentence) || sentence.includes(s))) continue;
+      already.push(sentence);
+      reportedBySegment.set(segmentKey, already);
 
       const finding: Finding = {
         factId: fact.id,
