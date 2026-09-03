@@ -40,8 +40,12 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# The example file carries no secret and should be committed.
-!.env.example
-
 # Engine run artifacts
 run.json
+
+.vercel
+.env*
+
+# Must stay last: the Vercel CLI appends `.env*` on link, which would otherwise
+# shadow this negation on a fresh clone.
+!.env.example
