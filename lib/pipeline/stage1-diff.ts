@@ -73,10 +73,21 @@ function section(text: string, heading: string): { body: string; offset: number 
  */
 export function v4UtilitySurface(root: string): Set<string> {
   const src = readFileSync(join(root, V4_UTILITIES), 'utf8');
-  const re =
-    /(?:staticUtility|functionalUtility|utilities\.static|utilities\.functional)\(\s*'([^']+)'/g;
   const names = new Set<string>();
-  for (const m of src.matchAll(re)) names.add(m[1]);
+
+  // Most utilities are declared by a call.
+  const call =
+    /(?:staticUtility|functionalUtility|utilities\.static|utilities\.functional)\(\s*'([^']+)'/g;
+  for (const m of src.matchAll(call)) names.add(m[1]);
+
+  // Some families are declared as [name, [css properties]] tuples inside a
+  // loop instead. Missing them made `rounded` look absent from v4 and so
+  // "breaking", while its five structural siblings - shadow, blur,
+  // backdrop-blur, drop-shadow, ring - came out "silent". Identical renames
+  // must not get different severities because of how the source spells them.
+  const tuple = /\[\s*'([a-z][a-z0-9-]*)',\s*\[/g;
+  for (const m of src.matchAll(tuple)) names.add(m[1]);
+
   return names;
 }
 

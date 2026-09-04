@@ -124,3 +124,20 @@ describe('containsVerbatim', () => {
     expect(containsVerbatim(passage, 'Run')).toBe(false);
   });
 });
+
+describe('severity is consistent across structurally identical renames', () => {
+  // v3 `shadow` became v4 `shadow-sm`, and the same shape holds for rounded,
+  // blur, backdrop-blur, drop-shadow and ring. All six are silent: the bare
+  // name still resolves in v4 and now means what the next size up used to.
+  // `rounded` was wrongly breaking because v4 declares it as a [name, [props]]
+  // tuple rather than a call, and the surface reader only saw calls.
+  const BARE = ['shadow', 'rounded', 'blur', 'backdrop-blur', 'drop-shadow', 'ring'];
+
+  it.each(BARE)('treats a bare %s rename as silent', (name) => {
+    expect(facts.find((f) => f.old === name)?.severity).toBe('silent');
+  });
+
+  it('sees tuple-declared utilities in the v4 surface', () => {
+    expect(v4UtilitySurface(root).has('rounded')).toBe(true);
+  });
+});
