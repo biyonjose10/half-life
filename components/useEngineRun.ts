@@ -126,6 +126,21 @@ function reduce(state: RunState, event: PipelineEvent): RunState {
     case 'repair':
       return { ...state, repairs: [...state.repairs, event.repair] };
 
+    case 'retracted':
+      // Stage 4 withdrew it: the rewrite matched the original, so the line never
+      // needed changing. Remove it rather than showing a fix that fixes nothing.
+      return {
+        ...state,
+        findings: state.findings.filter(
+          (f) =>
+            !(
+              f.assetId === event.assetId &&
+              f.segmentIdx === event.segmentIdx &&
+              f.factId === event.factId
+            ),
+        ),
+      };
+
     case 'error':
       return {
         ...state,

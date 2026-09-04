@@ -142,11 +142,30 @@ export async function runPipeline(
     emit({ type: 'stage-start', stage: 'repair' });
     t = Date.now();
     try {
-      repairs = await repair(findings, facts, assets, {
+      const outcome = await repair(findings, facts, assets, {
         onRepair: (r) => emit({ type: 'repair', repair: r }),
+        onRetract: (f, reason) =>
+          emit({
+            type: 'retracted',
+            factId: f.factId,
+            assetId: f.assetId,
+            segmentIdx: f.segmentIdx,
+            reason,
+          }),
         onProgress: (done, total) =>
           emit({ type: 'stage-progress', stage: 'repair', done, total }),
       });
+      repairs = outcome.repairs;
+      // A retracted finding is not a finding. Dropping it here keeps the
+      // returned report, the snapshot and the UI counts in agreement.
+      const dropped = new Set(
+        outcome.retracted.map((f) => `${f.assetId}|${f.segmentIdx}|${f.factId}`),
+      );
+      if (dropped.size) {
+        findings = findings.filter(
+          (f) => !dropped.has(`${f.assetId}|${f.segmentIdx}|${f.factId}`),
+        );
+      }
     } catch (err) {
       emit({
         type: 'error',

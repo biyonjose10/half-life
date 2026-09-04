@@ -70,6 +70,21 @@ async function pool<T>(items: T[], limit: number, worker: (item: T) => Promise<v
 export interface RepairOptions {
   onRepair?: (repair: Repair) => void;
   onProgress?: (done: number, total: number) => void;
+  /** Called when a finding is withdrawn because its repair changed nothing. */
+  onRetract?: (finding: Finding, reason: string) => void;
+}
+
+/**
+ * The repairer double-checks the adjudicator.
+ *
+ * A rewrite identical to the original means nothing about that line needed to
+ * change, so the finding was wrong. This catches confident errors a confidence
+ * threshold cannot: the false positive that prompted it scored 1.00 and quoted
+ * a plain `npm install` line, and the "fix" came back byte-identical.
+ */
+function isNoOp(corrected: string, original: string): boolean {
+  const norm = (s: string) => s.replace(/\s+/g, ' ').trim().toLowerCase();
+  return norm(corrected) === norm(original);
 }
 
 export async function repair(
@@ -77,7 +92,7 @@ export async function repair(
   facts: ChangedFact[],
   assets: Asset[],
   opts: RepairOptions = {},
-): Promise<Repair[]> {
+): Promise<{ repairs: Repair[]; retracted: Finding[] }> {
   const factById = new Map(facts.map((f) => [f.id, f]));
   const titleById = new Map(assets.map((a) => [a.id, a.title]));
 
@@ -98,6 +113,7 @@ export async function repair(
   }
 
   const repairs: Repair[] = [];
+  const retracted: Finding[] = [];
   let done = 0;
 
   await pool(batches, CONCURRENCY, async ({ fact, items }) => {
@@ -137,6 +153,16 @@ Return one repair per item, using \`ref\` for the ITEM number.`;
     for (const r of results) {
       const f = items[r.ref];
       if (!f || !r.corrected?.trim()) continue;
+
+      if (isNoOp(r.corrected, f.staleSentence)) {
+        const reason =
+          'the rewrite was identical to the original, so nothing on this line ' +
+          'actually depended on the change';
+        retracted.push(f);
+        opts.onRetract?.(f, reason);
+        continue;
+      }
+
       const out: Repair = {
         factId: f.factId,
         assetId: f.assetId,
@@ -151,5 +177,5 @@ Return one repair per item, using \`ref\` for the ITEM number.`;
     opts.onProgress?.(++done, batches.length);
   });
 
-  return repairs;
+  return { repairs, retracted };
 }

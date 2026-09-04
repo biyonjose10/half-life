@@ -143,5 +143,12 @@ export type PipelineEvent =
   | { type: 'candidates'; candidates: Candidate[] }
   | { type: 'finding'; finding: Finding }
   | { type: 'repair'; repair: Repair }
+  /**
+   * A finding withdrawn by stage 4. If the repairer cannot produce a line that
+   * differs from the original, nothing about that line actually needed to
+   * change - so the adjudicator was wrong and the finding is retracted rather
+   * than shown with a fix that fixes nothing.
+   */
+  | { type: 'retracted'; factId: string; assetId: string; segmentIdx: number; reason: string }
   | { type: 'error'; stage: StageName; message: string }
   | { type: 'done'; staleAssets: number; totalFindings: number };
