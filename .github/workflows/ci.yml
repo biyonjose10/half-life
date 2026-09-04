@@ -32,6 +32,10 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      # The extension has no build step, so its check is a plain node script.
+      - name: Extension highlight matching
+        run: node extension/highlight.check.js
+
       - name: Typecheck
         run: npx tsc --noEmit
 

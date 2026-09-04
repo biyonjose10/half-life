@@ -6,7 +6,10 @@
  * of `highlightPage` in background.js; the DOM half cannot be exercised without
  * a browser, and is not covered here.
  *
- *   node extension/highlight.test.js
+ *   node extension/highlight.check.js
+ *
+ * Named .check.js rather than .test.js on purpose: vitest claims *.test.*, and
+ * a plain script that calls process.exit is a failure to a test runner.
  */
 
 // Mirrors the flatten+locate half of highlightPage over simulated text nodes,
