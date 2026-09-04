@@ -29,10 +29,12 @@ async function main() {
   const facts = extractChangedFacts(root);
 
   let assets: Asset[] = [];
+  let candidates = 0;
   const { findings, repairs } = await runPipeline(
     root,
     (e: PipelineEvent) => {
       if (e.type === 'assets') assets = e.assets;
+      if (e.type === 'candidates') candidates = e.candidates.length;
       if (e.type === 'stage-start') process.stdout.write(`\n[${e.stage}] `);
       if (e.type === 'stage-progress') process.stdout.write('.');
       if (e.type === 'stage-done') process.stdout.write(` ${e.count} in ${e.ms}ms`);
@@ -48,6 +50,7 @@ async function main() {
   const snapshot = {
     generatedAt: new Date().toISOString(),
     elapsedMs: Date.now() - started,
+    candidates,
     facts,
     // Only the segments a finding actually points at survive, and their text is
     // dropped. The report reads nothing from a segment but its heading, and this

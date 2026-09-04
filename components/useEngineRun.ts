@@ -189,7 +189,12 @@ export function useEngineRun(snapshot?: RunSnapshot | null): EngineRun {
           },
           stages: {
             diff: { status: 'done', done: snapshot.facts.length, total: snapshot.facts.length, ms: 0 },
-            retrieve: { status: 'done', done: 0, total: 0, ms: 0 },
+            retrieve: {
+              status: 'done',
+              done: snapshot.candidates ?? 0,
+              total: snapshot.candidates ?? 0,
+              ms: 0,
+            },
             adjudicate: {
               status: 'done',
               done: snapshot.findings.length,
@@ -289,10 +294,20 @@ export function useEngineRun(snapshot?: RunSnapshot | null): EngineRun {
   // describe any document - including a live page the engine has never seen.
   // The mock fixture is only the fallback for mock mode, which emits no
   // `assets` event.
-  const assetsById = useMemo(
-    () => new Map((state.assets.length ? state.assets : mockAssets).map((a) => [a.id, a])),
-    [state.assets],
-  );
+  /**
+   * The mock fixture is a fallback for mock mode ONLY.
+   *
+   * It used to fill in whenever `assets` was empty, which became wrong the
+   * moment the report started seeding a card per known asset: during the gap
+   * before a live run's `assets` event lands, the report would render 22
+   * fabricated tutorials as "checked and clean". Inventing checked content is
+   * the one failure this project cannot have.
+   */
+  const assetsById = useMemo(() => {
+    const source =
+      state.assets.length > 0 ? state.assets : state.source === 'mock' ? mockAssets : [];
+    return new Map(source.map((a) => [a.id, a]));
+  }, [state.assets, state.source]);
 
   const repairsByHit = useMemo(
     () => new Map(state.repairs.map((r) => [hitKey(r), r])),

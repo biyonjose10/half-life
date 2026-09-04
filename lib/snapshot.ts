@@ -14,6 +14,12 @@ import type { Asset, ChangedFact, Finding, Repair } from './pipeline/types';
 export interface RunSnapshot {
   generatedAt: string;
   elapsedMs: number;
+  /**
+   * How many candidates stage 2 retrieved. Absent in snapshots taken before
+   * this was recorded, in which case the rail shows no number rather than a
+   * wrong one.
+   */
+  candidates?: number;
   facts: ChangedFact[];
   assets: Asset[];
   findings: Finding[];
