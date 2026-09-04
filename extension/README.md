@@ -63,9 +63,10 @@ therefore real text, it can be found again in the live DOM.
 
 ## Limits, stated rather than hidden
 
-- A sentence split across syntax-highlighting spans cannot be marked, because
-  matching is confined to a single text node. The popup reports how many
-  findings it could not locate rather than quietly showing fewer.
+- Matching runs across element boundaries, so a line broken into spans by a
+  syntax highlighter is still marked - one mark per fragment, sharing the
+  finding's id. A finding that still cannot be placed says so on its row rather
+  than being silently inert.
 - Chrome blocks extensions on `chrome://` pages and the Web Store.
 - Chrome can evict an MV3 service worker at any time, and an in-flight fetch
   dies with it. A ping keeps the worker alive across a normal run; if it is

@@ -123,7 +123,9 @@ function extractPage() {
  */
 function highlightPage(hits) {
   document.querySelectorAll('mark[data-half-life]').forEach((el) => {
+    const parent = el.parentNode;
     el.replaceWith(document.createTextNode(el.textContent));
+    parent?.normalize();
   });
 
   if (!document.getElementById('half-life-style')) {
@@ -152,72 +154,122 @@ function highlightPage(hits) {
     document.documentElement.appendChild(style);
   }
 
-  const norm = (s) => s.replace(/\s+/g, ' ').trim().toLowerCase();
-  const located = [];
+  // --- one normalised view of the whole page ---------------------------------
+  //
+  // Matching used to be confined to a single text node, which failed on exactly
+  // the pages worth checking: in a syntax-highlighted <pre> every token is its
+  // own <span>, so a stale line is split across dozens of nodes and nothing
+  // could be wrapped. On one code-heavy tutorial that meant 0 of 10 findings
+  // marked. So the page is flattened once, and a match is allowed to run across
+  // as many nodes as it needs.
+  const nodes = [];
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+    acceptNode(node) {
+      if (!node.nodeValue) return NodeFilter.FILTER_REJECT;
+      const el = node.parentElement;
+      if (!el || el.closest('script, style, noscript, textarea')) return NodeFilter.FILTER_REJECT;
+      return NodeFilter.FILTER_ACCEPT;
+    },
+  });
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) nodes.push(n);
 
-  for (const hit of hits) {
-    const needle = norm(hit.sentence);
-    if (needle.length < 8) continue;
-
-    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
-      acceptNode(node) {
-        if (!node.nodeValue || node.nodeValue.trim().length < 4) return NodeFilter.FILTER_REJECT;
-        if (node.parentElement?.closest('script, style, mark[data-half-life]')) {
-          return NodeFilter.FILTER_REJECT;
-        }
-        return norm(node.nodeValue).includes(needle)
-          ? NodeFilter.FILTER_ACCEPT
-          : NodeFilter.FILTER_REJECT;
-      },
-    });
-
-    const node = walker.nextNode();
-    if (!node) continue;
-
-    // Map the normalised match back to offsets in the raw text node. Built in
-    // one linear pass: `flat` is the normalised text, `offsets[i]` is where
-    // character i came from in the original.
+  // `flat` is the page as one whitespace-collapsed lowercase string; `where[i]`
+  // says which node character i came from and at what offset inside it.
+  let flat = '';
+  const where = [];
+  let lastWasSpace = true;
+  nodes.forEach((node, nodeIndex) => {
     const raw = node.nodeValue;
-    let flat = '';
-    const offsets = [];
-    let lastWasSpace = true;
     for (let i = 0; i < raw.length; i++) {
       const ch = raw[i];
       const isSpace = ch === ' ' || ch === '\n' || ch === '\t' || ch === '\r' || ch === '\f';
       if (isSpace) {
         if (lastWasSpace) continue;
         flat += ' ';
-        offsets.push(i);
+        where.push({ nodeIndex, offset: i });
         lastWasSpace = true;
       } else {
         flat += ch.toLowerCase();
-        offsets.push(i);
+        where.push({ nodeIndex, offset: i });
         lastWasSpace = false;
       }
     }
-
-    const at = flat.indexOf(needle);
-    if (at === -1) continue;
-    const start = offsets[at];
-    const end = offsets[at + needle.length - 1] + 1;
-
-    const range = document.createRange();
-    range.setStart(node, start);
-    range.setEnd(node, end);
-    const mark = document.createElement('mark');
-    mark.setAttribute('data-half-life', hit.severity);
-    mark.setAttribute('data-half-life-id', String(hit.id));
-    mark.title =
-      (hit.severity === 'silent' ? 'Silently wrong' : 'Broken') +
-      ' — ' +
-      hit.why +
-      (hit.fix ? '\n\nFix: ' + hit.fix : '');
-    try {
-      range.surroundContents(mark);
-      located.push(hit.id);
-    } catch {
-      /* the range straddled elements; leave this one unmarked */
+    // A block boundary is a word boundary even without whitespace in the text.
+    const display = node.parentElement && getComputedStyle(node.parentElement).display;
+    if (display && display !== 'inline' && !lastWasSpace) {
+      flat += ' ';
+      where.push({ nodeIndex, offset: raw.length });
+      lastWasSpace = true;
     }
+  });
+
+  const norm = (s) => s.replace(/\s+/g, ' ').trim().toLowerCase();
+
+  // --- locate every hit against that immutable view --------------------------
+  const matches = [];
+  const taken = [];
+  for (const hit of hits) {
+    const needle = norm(hit.sentence);
+    if (needle.length < 8) continue;
+
+    let at = flat.indexOf(needle);
+    // Skip past any region already claimed by an earlier hit, so two findings
+    // on the same line do not try to wrap the same characters.
+    while (at !== -1 && taken.some(([s, e]) => at < e && at + needle.length > s)) {
+      at = flat.indexOf(needle, at + 1);
+    }
+    if (at === -1) continue;
+
+    const end = at + needle.length - 1;
+    taken.push([at, end + 1]);
+    matches.push({ hit, start: where[at], end: where[end], from: at });
+  }
+
+  // --- apply, last first -----------------------------------------------------
+  //
+  // Wrapping a fragment replaces its text node, invalidating every offset that
+  // comes after it. Working backwards through the document keeps the offsets
+  // still to be used untouched.
+  matches.sort((a, b) => b.from - a.from);
+
+  const located = [];
+  for (const { hit, start, end } of matches) {
+    const pieces = [];
+    for (let i = start.nodeIndex; i <= end.nodeIndex; i++) {
+      const node = nodes[i];
+      if (!node || !node.parentNode) continue;
+      const from = i === start.nodeIndex ? start.offset : 0;
+      const to = i === end.nodeIndex ? end.offset + 1 : node.nodeValue.length;
+      if (to > from && node.nodeValue.slice(from, to).trim()) pieces.push({ node, from, to });
+    }
+    if (!pieces.length) continue;
+
+    // Later pieces first, for the same reason the matches are reversed.
+    let wrapped = 0;
+    for (const piece of pieces.reverse()) {
+      const range = document.createRange();
+      try {
+        range.setStart(piece.node, piece.from);
+        range.setEnd(piece.node, Math.min(piece.to, piece.node.nodeValue.length));
+      } catch {
+        continue;
+      }
+      const mark = document.createElement('mark');
+      mark.setAttribute('data-half-life', hit.severity);
+      mark.setAttribute('data-half-life-id', String(hit.id));
+      mark.title =
+        (hit.severity === 'silent' ? 'Silently wrong' : 'Broken') +
+        ' — ' +
+        hit.why +
+        (hit.fix ? '\n\nFix: ' + hit.fix : '');
+      try {
+        range.surroundContents(mark);
+        wrapped++;
+      } catch {
+        /* a fragment that still straddles an element; the others stand */
+      }
+    }
+    if (wrapped) located.push(hit.id);
   }
 
   const first = document.querySelector('mark[data-half-life]');
