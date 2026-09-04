@@ -112,12 +112,12 @@ export function Console({ snapshot }: { snapshot: RunSnapshot | null }) {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            {/* Replay speed only affects the mock transport. Showing it during a
-                live run invites a judge to press 4×, see nothing change, and
-                conclude the page is broken. */}
+            {/* Replay speed only affects the mock transport. Shown during a
+                live or recorded run it invites a judge to press 4×, see nothing
+                change, and conclude the page is broken. */}
             <div
               className={`flex overflow-hidden rounded-sm ring-1 ring-line-2 ring-inset ${
-                state.source === 'live' ? 'hidden' : ''
+                state.source !== null && state.source !== 'mock' ? 'hidden' : ''
               }`}
               title="Replay speed for the offline mock. A live run streams at the engine's own pace."
             >
@@ -277,9 +277,10 @@ export function Console({ snapshot }: { snapshot: RunSnapshot | null }) {
           <>
             <section className="mt-8 rounded-lg border border-line bg-panel px-4 py-5 sm:px-6">
               <div className="flex flex-wrap items-center justify-between gap-x-8 gap-y-5">
+                {/* Only what the four stage cards above do not already say.
+                    Changes, candidates and patches used to appear here as well,
+                    so the same three numbers were on screen twice. */}
                 <div className="flex flex-wrap items-center gap-x-8 gap-y-5 sm:gap-x-10">
-                  <Metric value={counts.diff} label="changes" />
-                  <Metric value={counts.retrieve} label="candidates" />
                   <Metric
                     value={severityTotals.silent}
                     label="silent"
@@ -291,7 +292,6 @@ export function Console({ snapshot }: { snapshot: RunSnapshot | null }) {
                     tone={severityTotals.breaking ? 'breaking' : 'ink'}
                   />
                   <Metric value={staleAssets} label="stale tutorials" />
-                  <Metric value={counts.repair} label="patches" tone="phos" />
                 </div>
 
                 <div className="font-mono text-[11.5px] tracking-[0.14em] uppercase">

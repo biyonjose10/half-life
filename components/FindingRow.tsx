@@ -3,7 +3,7 @@
 import type { ChangedFact, Finding, Repair, Segment, Severity } from '@/lib/pipeline/types';
 
 import { highlightRegex, splitOnMatches } from './format';
-import { CopyButton, FieldLabel, RichText, SEVERITY_STYLES, SeverityChip } from './primitives';
+import { CopyButton, FieldLabel, RichText, SeverityChip } from './primitives';
 
 /** Repo root for citation links, so a quote can be checked at its source line. */
 const SOURCE_BASE = 'https://github.com/biyonjose10/half-life/blob/main';
@@ -16,6 +16,11 @@ function firstLine(s: string): string {
 
 export function factLabel(fact: ChangedFact): string {
   if (fact.new) return `${firstLine(fact.old)}  →  ${firstLine(fact.new)}`;
+  // "removed" contradicts a silent finding: silent means the old form still
+  // resolves and merely does something different. Saying `tailwind.config.js →
+  // removed` directly above an explanation that it is "still supported" made
+  // the header argue with its own body.
+  if (fact.severity === 'silent') return `${firstLine(fact.old)}  ·  changed meaning`;
   return `${firstLine(fact.old)}  →  removed`;
 }
 
@@ -96,7 +101,6 @@ export function FindingRow({
   awaitingRepair: boolean;
 }) {
   const severity: Severity = fact?.severity ?? 'breaking';
-  const s = SEVERITY_STYLES[severity];
   const rowId = `${finding.assetId}-${finding.segmentIdx}-${finding.factId}`;
 
   return (
@@ -145,20 +149,9 @@ export function FindingRow({
               <Verbatim text={finding.staleSentence} fact={fact} severity={severity} />
             </div>
 
-            {severity === 'silent' && (
-              <div className="rounded-md border border-silent/35 bg-silent/[0.07] px-3.5 py-3">
-                <div className={`mb-1 font-mono text-[10.5px] font-semibold tracking-[0.18em] uppercase ${s.text}`}>
-                  Why silent is worse than breaking
-                </div>
-                <p className="text-[13px] leading-relaxed text-dim">
-                  A breaking change stops the build, so the reader knows to go looking. This one
-                  compiles, renders, and looks finished — the tutorial keeps its authority while
-                  teaching a result that no longer happens. Nothing in the reader&apos;s toolchain
-                  will ever raise it.
-                </p>
-              </div>
-            )}
-
+            {/* The "why silent is worse" explanation used to sit here, which
+                meant reading it 53 times in one report. It is stated once, at
+                the top of the report, where it belongs. */}
             <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <FieldLabel>What changed</FieldLabel>

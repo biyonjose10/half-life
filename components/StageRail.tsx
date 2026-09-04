@@ -106,7 +106,7 @@ function StageCard({
             state.status === 'idle' ? 'text-line-2' : running ? 'text-phos' : 'text-ink',
           ].join(' ')}
         >
-          {shown}
+          {count < 0 ? '—' : shown}
         </span>
         <span className="text-[13px] text-dim">{meta.unit}</span>
       </div>
@@ -122,7 +122,9 @@ function StageCard({
         </div>
         <span className="shrink-0 font-mono text-[11px] tabular-nums text-faint">
           {done
-            ? formatMs(state.ms)
+            ? state.ms > 0
+              ? formatMs(state.ms)
+              : '' /* recorded run: no per-stage timing was stored */
             : state.total > 0
               ? `${state.done}/${state.total}`
               : '—'}

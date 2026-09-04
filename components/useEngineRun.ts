@@ -206,7 +206,10 @@ export function useEngineRun(snapshot?: RunSnapshot | null): EngineRun {
             diff: { status: 'done', done: snapshot.facts.length, total: snapshot.facts.length, ms: 0 },
             retrieve: {
               status: 'done',
-              done: snapshot.candidates ?? 0,
+              // -1 means "not recorded", which the rail renders as an em dash.
+              // Older snapshots predate this field; showing 0 claimed a stage
+              // that retrieved 188 candidates had retrieved none.
+              done: snapshot.candidates ?? -1,
               total: snapshot.candidates ?? 0,
               ms: 0,
             },
@@ -227,7 +230,9 @@ export function useEngineRun(snapshot?: RunSnapshot | null): EngineRun {
       : initialState(),
   );
   const [speed, setSpeed] = useState(1);
-  const [elapsedMs, setElapsedMs] = useState(0);
+  // A recorded run knows how long it took; showing 0 ms made a 62-second run
+  // claim to have taken none.
+  const [elapsedMs, setElapsedMs] = useState(snapshot?.elapsedMs ?? 0);
   const handleRef = useRef<RunStreamHandle | null>(null);
   const startedAtRef = useRef<number>(0);
 
@@ -293,7 +298,12 @@ export function useEngineRun(snapshot?: RunSnapshot | null): EngineRun {
   const counts = useMemo<Record<StageName, number>>(
     () => ({
       diff: Math.max(state.facts.length, state.stages.diff.done),
-      retrieve: Math.max(state.candidates.length, state.stages.retrieve.done),
+      // -1 is the "not recorded" sentinel and must survive; Math.max would
+      // turn it back into a 0 that claims the stage found nothing.
+      retrieve:
+        state.stages.retrieve.done < 0 && state.candidates.length === 0
+          ? -1
+          : Math.max(state.candidates.length, state.stages.retrieve.done),
       adjudicate: staleCount,
       repair: state.repairs.length,
     }),
