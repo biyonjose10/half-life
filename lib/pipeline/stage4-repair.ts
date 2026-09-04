@@ -25,6 +25,15 @@ broke it. Produce:
   Keep the author's voice, formatting and level of detail. Change only what the
   documented change requires. Do not add commentary or version numbers that were
   not there.
+
+  Never resolve a change by pinning to the old version. Turning an install
+  command into one that requests the previous major version freezes the tutorial
+  instead of correcting it, which is the opposite of the job. The corrected line
+  must work on the NEW version.
+
+  If the line is already correct on the new version and needs no edit, return it
+  unchanged - an unchanged line is treated as a withdrawal of the finding, which
+  is the right outcome when nothing was actually wrong.
 - pinnedComment: one or two sentences the author can post as a pinned comment or
   editor's note, telling readers what changed and what to do instead. Write it
   to the reader, plainly, with no marketing tone and no apology.`;
